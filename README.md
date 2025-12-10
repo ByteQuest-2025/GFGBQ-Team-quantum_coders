@@ -1,2 +1,3 @@
 # GFGBQ-Team-quantum_coders
-Repository for quantum_coders - Vibe Coding Hackathon
+
+Firebase Studio + Next.js project for Vibe Coding Hackathon.
