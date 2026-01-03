@@ -71,11 +71,10 @@ export default function LiveDetectionPage() {
     };
 
     recognition.onend = () => {
-      // The onend event can fire unexpectedly, so we only restart if we are still in a recording state.
-      if ((speaker === 'Caller' && isRecordingCaller) || (speaker === 'Receiver' && isRecordingReceiver)) {
-         if (recognitionRef.current) {
-            recognitionRef.current.start();
-         }
+      if (speaker === 'Caller') {
+        setIsRecordingCaller(false);
+      } else {
+        setIsRecordingReceiver(false);
       }
     };
 
@@ -143,8 +142,6 @@ export default function LiveDetectionPage() {
       scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
     }
   }, [transcript]);
-
-  const isRecording = isRecordingCaller || isRecordingReceiver;
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
