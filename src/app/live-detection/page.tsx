@@ -29,7 +29,6 @@ export default function LiveDetectionPage() {
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const analysisTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const startRecognition = (speaker: 'Caller' | 'Receiver') => {
     if (!SpeechRecognition) {
@@ -72,8 +71,11 @@ export default function LiveDetectionPage() {
     };
 
     recognition.onend = () => {
+      // The onend event can fire unexpectedly, so we only restart if we are still in a recording state.
       if ((speaker === 'Caller' && isRecordingCaller) || (speaker === 'Receiver' && isRecordingReceiver)) {
-        recognition.start();
+         if (recognitionRef.current) {
+            recognitionRef.current.start();
+         }
       }
     };
 
@@ -85,30 +87,6 @@ export default function LiveDetectionPage() {
     if (recognitionRef.current) {
       recognitionRef.current.stop();
       recognitionRef.current = null;
-    }
-  };
-
-  const handleCallerMicClick = () => {
-    if (isRecordingCaller) {
-      stopRecognition();
-      setIsRecordingCaller(false);
-    } else {
-      stopRecognition();
-      setIsRecordingReceiver(false);
-      setIsRecordingCaller(true);
-      startRecognition('Caller');
-    }
-  };
-
-  const handleReceiverMicClick = () => {
-    if (isRecordingReceiver) {
-      stopRecognition();
-      setIsRecordingReceiver(false);
-    } else {
-      stopRecognition();
-      setIsRecordingCaller(false);
-      setIsRecordingReceiver(true);
-      startRecognition('Receiver');
     }
   };
   
@@ -124,14 +102,37 @@ export default function LiveDetectionPage() {
     }
   };
 
+  const handleCallerMicClick = () => {
+    if (isRecordingCaller) {
+      stopRecognition();
+      setIsRecordingCaller(false);
+      runAnalysis(transcript); // Analyze when stopping
+    } else {
+      stopRecognition();
+      setIsRecordingReceiver(false);
+      setIsRecordingCaller(true);
+      startRecognition('Caller');
+    }
+  };
+
+  const handleReceiverMicClick = () => {
+    if (isRecordingReceiver) {
+      stopRecognition();
+      setIsRecordingReceiver(false);
+      runAnalysis(transcript); // Analyze when stopping
+    } else {
+      stopRecognition();
+      setIsRecordingCaller(false);
+      setIsRecordingReceiver(true);
+      startRecognition('Receiver');
+    }
+  };
+
   useEffect(() => {
     return () => {
       // Cleanup on unmount
       if (recognitionRef.current) {
         recognitionRef.current.stop();
-      }
-      if (analysisTimeoutRef.current) {
-        clearTimeout(analysisTimeoutRef.current);
       }
     };
   }, []);
@@ -141,15 +142,6 @@ export default function LiveDetectionPage() {
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
     }
-
-    // Debounce analysis to avoid excessive API calls
-    if (analysisTimeoutRef.current) {
-      clearTimeout(analysisTimeoutRef.current);
-    }
-    analysisTimeoutRef.current = setTimeout(() => {
-        runAnalysis(transcript);
-    }, 3000); // Wait 3 seconds after user stops speaking
-
   }, [transcript]);
 
   const isRecording = isRecordingCaller || isRecordingReceiver;
