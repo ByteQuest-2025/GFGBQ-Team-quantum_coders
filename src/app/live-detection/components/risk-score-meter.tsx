@@ -6,10 +6,27 @@ import {
   PolarAngleAxis,
   ResponsiveContainer,
 } from "recharts"
+import { cn } from "@/lib/utils";
 
-const chartData = [{ name: "Risk", value: 35, fill: "hsl(var(--primary))" }]
+type RiskScoreMeterProps = {
+  score: number;
+};
 
-export default function RiskScoreMeter() {
+export default function RiskScoreMeter({ score }: RiskScoreMeterProps) {
+  const getRiskLevel = (value: number) => {
+    if (value >= 70) return "High Risk";
+    if (value >= 40) return "Medium Risk";
+    return "Low Risk";
+  };
+  
+  const getFillColor = (value: number) => {
+    if (value >= 70) return "hsl(var(--destructive))";
+    if (value >= 40) return "hsl(var(--chart-3))";
+    return "hsl(var(--primary))";
+  }
+
+  const chartData = [{ name: "Risk", value: score, fill: getFillColor(score) }]
+
   return (
     <div className="w-full h-48">
       <ResponsiveContainer width="100%" height="100%">
@@ -31,7 +48,6 @@ export default function RiskScoreMeter() {
             background={{ fill: 'hsl(var(--muted))' }}
             dataKey="value"
             cornerRadius={10}
-            className="fill-primary"
           />
           <text
             x="50%"
@@ -40,7 +56,7 @@ export default function RiskScoreMeter() {
             dominantBaseline="middle"
             className="fill-foreground text-4xl font-bold"
           >
-            35%
+            {score}%
           </text>
           <text
             x="50%"
@@ -49,7 +65,7 @@ export default function RiskScoreMeter() {
             dominantBaseline="middle"
             className="fill-muted-foreground text-sm"
           >
-            Low Risk
+            {getRiskLevel(score)}
           </text>
         </RadialBarChart>
       </ResponsiveContainer>

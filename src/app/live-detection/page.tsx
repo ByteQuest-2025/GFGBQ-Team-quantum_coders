@@ -1,11 +1,14 @@
 "use client";
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useTransition } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import RiskScoreMeter from './components/risk-score-meter';
 import MicButton from './components/mic-button';
+import { analyzeTranscript, AnalyzeTranscriptOutput } from '@/ai/flows/scam-detection-flow';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 
 type TranscriptEntry = {
   speaker: 'Caller' | 'Receiver';
@@ -21,8 +24,12 @@ export default function LiveDetectionPage() {
   const [isRecordingCaller, setIsRecordingCaller] = useState(false);
   const [isRecordingReceiver, setIsRecordingReceiver] = useState(false);
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
+  const [analysis, setAnalysis] = useState<AnalyzeTranscriptOutput | null>(null);
+  const [isAnalyzing, startAnalyzing] = useTransition();
+
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const analysisTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const startRecognition = (speaker: 'Caller' | 'Receiver') => {
     if (!SpeechRecognition) {
@@ -39,14 +46,10 @@ export default function LiveDetectionPage() {
     recognition.lang = 'en-US';
 
     recognition.onresult = (event) => {
-      let interimTranscript = '';
       let finalTranscript = '';
-
       for (let i = event.resultIndex; i < event.results.length; ++i) {
         if (event.results[i].isFinal) {
           finalTranscript += event.results[i][0].transcript;
-        } else {
-          interimTranscript += event.results[i][0].transcript;
         }
       }
       
@@ -55,7 +58,7 @@ export default function LiveDetectionPage() {
           ...prev,
           {
             speaker: speaker,
-            text: finalTranscript,
+            text: finalTranscript.trim(),
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
           },
         ]);
@@ -70,7 +73,6 @@ export default function LiveDetectionPage() {
 
     recognition.onend = () => {
       if ((speaker === 'Caller' && isRecordingCaller) || (speaker === 'Receiver' && isRecordingReceiver)) {
-        // Restart recognition if it stops unexpectedly while still in recording state
         recognition.start();
       }
     };
@@ -110,11 +112,26 @@ export default function LiveDetectionPage() {
     }
   };
   
-   useEffect(() => {
+  const runAnalysis = (currentTranscript: TranscriptEntry[]) => {
+    if (currentTranscript.length > 0) {
+      startAnalyzing(async () => {
+        const fullTranscript = currentTranscript.map(t => `${t.speaker}: ${t.text}`).join('\n');
+        const result = await analyzeTranscript({ transcript: fullTranscript });
+        setAnalysis(result);
+      });
+    } else {
+      setAnalysis({ riskScore: 0, detectedKeywords: [], detectedTones: [], reason: "Start recording to begin analysis."});
+    }
+  };
+
+  useEffect(() => {
     return () => {
       // Cleanup on unmount
       if (recognitionRef.current) {
         recognitionRef.current.stop();
+      }
+      if (analysisTimeoutRef.current) {
+        clearTimeout(analysisTimeoutRef.current);
       }
     };
   }, []);
@@ -124,8 +141,18 @@ export default function LiveDetectionPage() {
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
     }
+
+    // Debounce analysis to avoid excessive API calls
+    if (analysisTimeoutRef.current) {
+      clearTimeout(analysisTimeoutRef.current);
+    }
+    analysisTimeoutRef.current = setTimeout(() => {
+        runAnalysis(transcript);
+    }, 1500); // Wait 1.5 seconds after user stops speaking
+
   }, [transcript]);
 
+  const isRecording = isRecordingCaller || isRecordingReceiver;
 
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -160,7 +187,7 @@ export default function LiveDetectionPage() {
           <CardDescription>Real-time threat analysis</CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-center p-0 pt-4">
-          <RiskScoreMeter />
+          <RiskScoreMeter score={analysis?.riskScore ?? 0} />
         </CardContent>
       </Card>
 
@@ -168,10 +195,34 @@ export default function LiveDetectionPage() {
         <CardHeader>
           <CardTitle>AI Analysis</CardTitle>
         </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">
-            {isRecordingCaller || isRecordingReceiver ? 'AI is analyzing the conversation...' : 'Start recording to begin analysis.'}
-          </p>
+        <CardContent className="space-y-4">
+          {isAnalyzing ? (
+            <div className="space-y-4">
+              <Skeleton className="h-4 w-3/4" />
+              <div className="flex gap-2">
+                <Skeleton className="h-6 w-20" />
+                <Skeleton className="h-6 w-24" />
+              </div>
+            </div>
+          ) : !isRecording && transcript.length === 0 ? (
+             <p className="text-muted-foreground">Start recording to begin analysis.</p>
+          ) : (
+            <>
+              <p className="text-muted-foreground">
+                {analysis?.reason ?? 'AI is analyzing the conversation...'}
+              </p>
+              {(analysis?.detectedKeywords.length > 0 || analysis?.detectedTones.length > 0) && (
+                 <div className="flex flex-wrap gap-2">
+                  {analysis.detectedKeywords.map((keyword) => (
+                    <Badge key={keyword} variant="destructive">{keyword}</Badge>
+                  ))}
+                  {analysis.detectedTones.map((tone) => (
+                    <Badge key={tone} variant="secondary">{tone}</Badge>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </CardContent>
       </Card>
       
@@ -180,8 +231,8 @@ export default function LiveDetectionPage() {
           <CardTitle>Live Transcript</CardTitle>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-48 w-full rounded-md border" ref={scrollAreaRef}>
-             <div className="p-4 space-y-4">
+          <ScrollArea className="h-48 w-full rounded-md border" >
+             <div className="p-4 space-y-4" ref={scrollAreaRef}>
               {transcript.length === 0 && (
                  <p className="text-sm text-muted-foreground text-center">
                   Press a record button to start transcription.
