@@ -56,7 +56,7 @@ No scam detection or risk analysis logic is included in this checkpoint.
    
 ### src/ Directory Breakdown
 src/
-├── ai/                        # (Planned) AI & scam detection logic
+├── ai/                        # AI & scam detection logic
 ├── app/                       # Next.js App Router pages
 │   ├── live-detection/        # Live audio & transcript view
 │   ├── scam-history/          # Scam history page
@@ -67,6 +67,8 @@ src/
 ├── components/                # Reusable UI components
 ├── hooks/                     # Custom React hooks
 └── lib/                       # Utility functions
+
+
 
 ## Current Project Status
 
