@@ -148,7 +148,7 @@ export default function LiveDetectionPage() {
     }
     analysisTimeoutRef.current = setTimeout(() => {
         runAnalysis(transcript);
-    }, 1500); // Wait 1.5 seconds after user stops speaking
+    }, 3000); // Wait 3 seconds after user stops speaking
 
   }, [transcript]);
 
