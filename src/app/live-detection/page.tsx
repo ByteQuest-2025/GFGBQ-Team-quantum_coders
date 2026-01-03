@@ -196,14 +196,14 @@ export default function LiveDetectionPage() {
                 <Skeleton className="h-6 w-24" />
               </div>
             </div>
-          ) : !isRecording && transcript.length === 0 ? (
+          ) : !analysis ? (
              <p className="text-muted-foreground">Start recording to begin analysis.</p>
           ) : (
             <>
               <p className="text-muted-foreground">
-                {analysis?.reason ?? 'AI is analyzing the conversation...'}
+                {analysis.reason}
               </p>
-              {(analysis?.detectedKeywords.length > 0 || analysis?.detectedTones.length > 0) && (
+              {(analysis.detectedKeywords.length > 0 || analysis.detectedTones.length > 0) && (
                  <div className="flex flex-wrap gap-2">
                   {analysis.detectedKeywords.map((keyword) => (
                     <Badge key={keyword} variant="destructive">{keyword}</Badge>
