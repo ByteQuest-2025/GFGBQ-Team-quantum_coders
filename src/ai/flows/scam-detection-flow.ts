@@ -10,12 +10,12 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 
-export const AnalyzeTranscriptInputSchema = z.object({
+const AnalyzeTranscriptInputSchema = z.object({
   transcript: z.string().describe('The full transcript of the conversation.'),
 });
 export type AnalyzeTranscriptInput = z.infer<typeof AnalyzeTranscriptInputSchema>;
 
-export const AnalyzeTranscriptOutputSchema = z.object({
+const AnalyzeTranscriptOutputSchema = z.object({
   detectedKeywords: z
     .array(z.string())
     .describe(
