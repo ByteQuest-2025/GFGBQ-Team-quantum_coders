@@ -1,6 +1,6 @@
 "use client";
 
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { PhoneOff, ShieldOff, VolumeX } from "lucide-react";
 import type { AnalyzeTranscriptOutput } from "@/ai/flows/scam-detection-flow";
@@ -17,6 +17,12 @@ export default function ScamAlertModal({ isOpen, onClose, analysis }: ScamAlertM
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-md p-0 overflow-hidden bg-destructive/90 text-destructive-foreground border-red-500/50 !rounded-2xl shadow-2xl shadow-red-500/50">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Scam Risk Detected</DialogTitle>
+          <DialogDescription>
+            A high scam risk has been detected. The risk score is {analysis?.riskScore ?? 0}%. Reason: {analysis?.reason}. Please do not share sensitive information.
+          </DialogDescription>
+        </DialogHeader>
         <div className="relative p-8 flex flex-col items-center justify-center text-center space-y-4 animate-pulse-intense">
           <div className="absolute inset-0 bg-grid-pattern opacity-10"></div>
           <div className="absolute inset-0 bg-gradient-to-t from-destructive via-transparent to-destructive"></div>
