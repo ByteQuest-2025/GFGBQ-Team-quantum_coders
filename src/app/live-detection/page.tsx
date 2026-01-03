@@ -9,6 +9,7 @@ import MicButton from './components/mic-button';
 import { analyzeTranscript, AnalyzeTranscriptOutput } from '@/ai/flows/scam-detection-flow';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import ScamAlertModal from './components/scam-alert-modal';
 
 type TranscriptEntry = {
   speaker: 'Caller' | 'Receiver';
@@ -26,10 +27,12 @@ export default function LiveDetectionPage() {
   const [transcript, setTranscript] = useState<TranscriptEntry[]>([]);
   const [analysis, setAnalysis] = useState<AnalyzeTranscriptOutput | null>(null);
   const [isAnalyzing, startAnalyzing] = useTransition();
+  const [isAlertOpen, setIsAlertOpen] = useState(false);
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const retryCountRef = useRef(0);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const startRecognition = (speaker: 'Caller' | 'Receiver') => {
     if (!SpeechRecognition) {
@@ -38,6 +41,7 @@ export default function LiveDetectionPage() {
     }
     // Stop any existing recognition instance
     if (recognitionRef.current) {
+      recognitionRef.current.onend = null; // Prevent onend from firing on manual stop
       recognitionRef.current.stop();
     }
 
@@ -70,20 +74,24 @@ export default function LiveDetectionPage() {
     recognition.onerror = (event) => {
       console.error("Speech Recognition Error:", event.error);
       
+      if (event.error === 'aborted') {
+        console.log("Recognition aborted intentionally.");
+        return;
+      }
+      
       if (event.error === 'network' && retryCountRef.current < 3) {
         retryCountRef.current++;
         console.log(`Network error, retrying... (Attempt ${retryCountRef.current})`);
-        // Stop and restart after a delay
-        recognitionRef.current?.stop();
-        setTimeout(() => {
-          recognition.start();
-        }, 1000);
+        // We don't need to manually stop/start, the browser might handle it.
+        // If it fully ends, onend will trigger. Let's rely on that.
         return;
       }
       
       setIsRecordingCaller(false);
       setIsRecordingReceiver(false);
-      recognitionRef.current?.stop();
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
 
        alert(
         event.error === "network"
@@ -93,8 +101,13 @@ export default function LiveDetectionPage() {
     };
 
     recognition.onend = () => {
-      console.log("Recognition stopped safely");
+      console.log("Recognition stopped.");
       // This is now primarily for logging, state changes are handled in clicks and errors.
+      // Avoid auto-restarting here to prevent loops. The user can restart manually.
+      const isStillRecording = isRecordingCaller || isRecordingReceiver;
+      if (isStillRecording && recognitionRef.current === recognition) {
+        // if the state is still recording, but the service ended, it's an unexpected stop.
+      }
     };
     
     recognition.start();
@@ -103,9 +116,12 @@ export default function LiveDetectionPage() {
 
   const stopRecognition = () => {
     if (recognitionRef.current) {
+      recognitionRef.current.onend = null; // Prevent onend from firing on manual stop
       recognitionRef.current.stop();
       recognitionRef.current = null;
     }
+    setIsRecordingCaller(false);
+    setIsRecordingReceiver(false);
   };
   
   const runAnalysis = (currentTranscript: TranscriptEntry[]) => {
@@ -114,6 +130,9 @@ export default function LiveDetectionPage() {
         const fullTranscript = currentTranscript.map(t => `${t.speaker}: ${t.text}`).join('\n');
         const result = await analyzeTranscript({ transcript: fullTranscript });
         setAnalysis(result);
+        if (result && result.riskScore >= 30) {
+          setIsAlertOpen(true);
+        }
       });
     } else {
       setAnalysis({ riskScore: 0, detectedKeywords: [], detectedTones: [], reason: "Start recording to begin analysis."});
@@ -123,9 +142,9 @@ export default function LiveDetectionPage() {
   const handleCallerMicClick = () => {
     if (isRecordingCaller) {
       stopRecognition();
-      setIsRecordingCaller(false);
       runAnalysis(transcript);
     } else {
+      stopRecognition(); // Stop any other recording
       setIsRecordingReceiver(false);
       setIsRecordingCaller(true);
       startRecognition('Caller');
@@ -135,12 +154,23 @@ export default function LiveDetectionPage() {
   const handleReceiverMicClick = () => {
     if (isRecordingReceiver) {
       stopRecognition();
-      setIsRecordingReceiver(false);
       runAnalysis(transcript);
     } else {
+      stopRecognition(); // Stop any other recording
       setIsRecordingCaller(false);
       setIsRecordingReceiver(true);
       startRecognition('Receiver');
+    }
+  };
+
+  const handleCloseAlert = () => {
+    setIsAlertOpen(false);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+    }
+    if (navigator.vibrate) {
+      navigator.vibrate(0);
     }
   };
 
@@ -156,12 +186,34 @@ export default function LiveDetectionPage() {
   useEffect(() => {
     // Auto-scroll to bottom of transcript
     if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTo({ top: scrollAreaRef.current.scrollHeight, behavior: 'smooth' });
+      const scrollElement = scrollAreaRef.current.querySelector('div');
+      if(scrollElement) {
+        scrollElement.scrollTo({ top: scrollElement.scrollHeight, behavior: 'smooth' });
+      }
     }
   }, [transcript]);
 
+  useEffect(() => {
+    if (isAlertOpen) {
+      if (audioRef.current) {
+        audioRef.current.loop = true;
+        audioRef.current.play().catch(e => console.error("Audio play failed:", e));
+      }
+      if (navigator.vibrate) {
+        navigator.vibrate([200, 100, 200]); // Vibrate pattern
+      }
+    }
+  }, [isAlertOpen]);
+
+
   return (
     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <audio ref={audioRef} src="/siren.mp3" preload="auto"></audio>
+      <ScamAlertModal 
+        isOpen={isAlertOpen} 
+        onClose={handleCloseAlert}
+        analysis={analysis}
+      />
       <Card className="lg:col-span-1">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-sm font-medium">Caller</CardTitle>
@@ -237,8 +289,8 @@ export default function LiveDetectionPage() {
           <CardTitle>Live Transcript</CardTitle>
         </CardHeader>
         <CardContent>
-          <ScrollArea className="h-48 w-full rounded-md border" >
-             <div className="p-4 space-y-4" ref={scrollAreaRef}>
+          <ScrollArea className="h-48 w-full rounded-md border" ref={scrollAreaRef}>
+             <div className="p-4 space-y-4">
               {transcript.length === 0 && (
                  <p className="text-sm text-muted-foreground text-center">
                   Press a record button to start transcription.
