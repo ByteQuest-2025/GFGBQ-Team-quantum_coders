@@ -200,7 +200,7 @@ export default function LiveDetectionPage() {
         audioRef.current.play().catch(e => console.error("Audio play failed:", e));
       }
       if (navigator.vibrate) {
-        navigator.vibrate([200, 100, 200]); // Vibrate pattern
+        navigator.vibrate([200, 100, 200, 100, 200, 100, 200, 100, 200]); // Looping-like pattern
       }
     }
   }, [isAlertOpen]);
