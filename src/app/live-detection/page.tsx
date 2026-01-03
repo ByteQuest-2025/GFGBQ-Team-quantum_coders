@@ -29,12 +29,14 @@ export default function LiveDetectionPage() {
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const retryCountRef = useRef(0);
 
   const startRecognition = (speaker: 'Caller' | 'Receiver') => {
     if (!SpeechRecognition) {
       alert("Your browser does not support the SpeechRecognition API. Please try Chrome or Safari.");
       return;
     }
+    // Stop any existing recognition instance
     if (recognitionRef.current) {
       recognitionRef.current.stop();
     }
@@ -61,23 +63,40 @@ export default function LiveDetectionPage() {
             timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
           },
         ]);
+        retryCountRef.current = 0; // Reset retry count on successful result
       }
     };
 
     recognition.onerror = (event) => {
-      console.error('Speech recognition error', event.error);
+      console.error("Speech Recognition Error:", event.error);
+      
+      if (event.error === 'network' && retryCountRef.current < 3) {
+        retryCountRef.current++;
+        console.log(`Network error, retrying... (Attempt ${retryCountRef.current})`);
+        // Stop and restart after a delay
+        recognitionRef.current?.stop();
+        setTimeout(() => {
+          recognition.start();
+        }, 1000);
+        return;
+      }
+      
       setIsRecordingCaller(false);
       setIsRecordingReceiver(false);
+      recognitionRef.current?.stop();
+
+       alert(
+        event.error === "network"
+          ? "Speech recognition failed due to a network or microphone interruption. Please try again."
+          : "Speech recognition stopped unexpectedly. Please try again."
+      );
     };
 
     recognition.onend = () => {
-      if (speaker === 'Caller') {
-        setIsRecordingCaller(false);
-      } else {
-        setIsRecordingReceiver(false);
-      }
+      console.log("Recognition stopped safely");
+      // This is now primarily for logging, state changes are handled in clicks and errors.
     };
-
+    
     recognition.start();
     recognitionRef.current = recognition;
   };
@@ -105,9 +124,8 @@ export default function LiveDetectionPage() {
     if (isRecordingCaller) {
       stopRecognition();
       setIsRecordingCaller(false);
-      runAnalysis(transcript); // Analyze when stopping
+      runAnalysis(transcript);
     } else {
-      stopRecognition();
       setIsRecordingReceiver(false);
       setIsRecordingCaller(true);
       startRecognition('Caller');
@@ -118,9 +136,8 @@ export default function LiveDetectionPage() {
     if (isRecordingReceiver) {
       stopRecognition();
       setIsRecordingReceiver(false);
-      runAnalysis(transcript); // Analyze when stopping
+      runAnalysis(transcript);
     } else {
-      stopRecognition();
       setIsRecordingCaller(false);
       setIsRecordingReceiver(true);
       startRecognition('Receiver');
