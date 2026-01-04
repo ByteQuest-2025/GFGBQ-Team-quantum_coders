@@ -18,17 +18,21 @@ This project addresses the need for an AI-powered real-time audio intelligence s
 ---
 
 # Deployed Link 
-**<DEPLOYED PROJECT LINK>**
-
+```
+https://voiceshield-ai.vercel.app
+```
 ---
 
 # 2-Minute Demonstration Video Link  
-**<2-MIN DEMO VIDEO LINK>**
-
+```
+https://youtu.be/KNAXDbZoL60
+```
 ---
 
 # PPT Link  
-**<PPT LINK>**
+```
+https://www.canva.com/design/DAG4yH1BXpI/ZcEQ4Hy9FKhvoghX2tjOgw/edit?utm_content=DAG4yH1BXpI&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton
+```
 
 ---
 
@@ -185,10 +189,3 @@ npm run dev
 
 **VoiceShield AI** transforms fraud detection from a reactive, post-event system into a **real-time, emotionally intelligent protection framework**. By combining AI-driven analysis, guardian involvement, and cyber-cell assistance, the system delivers strong social impact and real-world scalability.
 
-```
-- Optimize wording for **maximum judge score**
-- Create a **short README version for submission portal**
-- Align README with your **2-minute demo script**
-
-Just tell me 👍
-```
