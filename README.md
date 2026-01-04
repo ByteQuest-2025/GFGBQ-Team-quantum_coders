@@ -31,7 +31,7 @@ https://youtu.be/KNAXDbZoL60
 
 # PPT Link  
 ```
-https://www.canva.com/design/DAG4yH1BXpI/ZcEQ4Hy9FKhvoghX2tjOgw/edit?utm_content=DAG4yH1BXpI&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton
+https://drive.google.com/file/d/1yNEmFYxGHVvEmDHPIgXFfo1s-GaZVsq4/view?usp=drivesdk
 ```
 
 ---
